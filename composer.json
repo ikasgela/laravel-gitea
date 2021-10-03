@@ -50,10 +50,7 @@
         "laravel": {
             "providers": [
                 "Ikasgela\\Gitea\\GiteaServiceProvider"
-            ],
-            "aliases": {
-                "Gitea": "Ikasgela\\Gitea\\GiteaFacade"
-            }
+            ]
         }
     },
     "minimum-stability": "dev",
