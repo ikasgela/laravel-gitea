@@ -1,12 +1,12 @@
 <?php
 
-namespace VendorName\Skeleton\Commands;
+namespace Ikasgela\Gitea\Commands;
 
 use Illuminate\Console\Command;
 
-class SkeletonCommand extends Command
+class GiteaCommand extends Command
 {
-    public $signature = 'skeleton';
+    public $signature = 'laravel-gitea';
 
     public $description = 'My command';
 
