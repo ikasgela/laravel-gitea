@@ -30,8 +30,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Ikasgela\\Gitea\\": "src",
-            "Ikasgela\\Gitea\\Database\\Factories\\": "database/factories"
+            "Ikasgela\\Gitea\\": "src"
         }
     },
     "autoload-dev": {
