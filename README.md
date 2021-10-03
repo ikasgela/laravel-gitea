@@ -1,8 +1,6 @@
 # Gitea API integration for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/ikasgela/laravel-gitea.svg?style=flat-square)](https://packagist.org/packages/ikasgela/laravel-gitea)
-[![GitHub Tests Action Status](https://img.shields.io/github/workflow/status/ikasgela/laravel-gitea/run-tests?label=tests)](https://github.com/ikasgela/laravel-gitea/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/workflow/status/ikasgela/laravel-gitea/Check%20&%20fix%20styling?label=code%20style)](https://github.com/ikasgela/laravel-gitea/actions?query=workflow%3A"Check+%26+fix+styling"+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/ikasgela/laravel-gitea.svg?style=flat-square)](https://packagist.org/packages/ikasgela/laravel-gitea)
 
 Gitea API integration for Laravel.
@@ -18,21 +16,23 @@ composer require ikasgela/laravel-gitea
 You can publish the config file with:
 
 ```bash
-php artisan vendor:publish --provider="Ikasgela\Gitea\GiteaServiceProvider" --tag="laravel-gitea-config"
+php artisan vendor:publish --provider="Ikasgela\Gitea\GiteaServiceProvider"
 ```
 
 This is the contents of the published config file:
 
 ```php
 return [
+    'url' => env('GITEA_URL'),
+    'token' => env('GITEA_TOKEN'),
 ];
 ```
 
 ## Usage
 
 ```php
-$laravel-gitea = new Ikasgela\Gitea();
-echo $laravel-gitea->echoPhrase('Hello, Ikasgela!');
+$repository = GiteaClient::repo('user/repository');
+echo $repository['http_url_to_repo'];
 ```
 
 ## Testing
