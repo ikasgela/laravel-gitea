@@ -2,6 +2,6 @@
 
 namespace Ikasgela\Gitea;
 
-class Gitea
+class GiteaClient
 {
 }

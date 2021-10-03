@@ -5,7 +5,7 @@ namespace Ikasgela\Gitea;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @see \Ikasgela\Gitea\Gitea
+ * @see \Ikasgela\Gitea\GiteaClient
  */
 class GiteaFacade extends Facade
 {
