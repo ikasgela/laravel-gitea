@@ -156,7 +156,7 @@ class GiteaClient
             'query' => [
                 'limit' => 50,
                 'uid' => $uid,
-                'exclusive' => true,
+                'exclusive' => false,
                 'sort' => 'updated',
                 'order' => 'desc',
             ]
