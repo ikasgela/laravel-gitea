@@ -82,6 +82,29 @@ class GiteaClient
         return base64_decode($response['content']);
     }
 
+    public static function repo_first_sha($owner, $repo, $branch = 'master')
+    {
+        self::init();
+
+        try {
+            $query = "repos/$owner/$repo/commits?sha=$branch";
+
+            $request = self::$cliente->get($query, [
+                'headers' => self::$headers
+            ]);
+
+            $response = json_decode($request->getBody(), true);
+
+            return $response[array_key_last($response)]['sha'];
+        } catch (\Exception $e) {
+            Log::error('Gitea: No se ha podido obtener el hash del primer commit.', [
+                'exception' => $e->getMessage()
+            ]);
+        }
+
+        return null;
+    }
+
     public static function clone($repositorio, $username, $destino, $descripcion = null)
     {
         self::init();
