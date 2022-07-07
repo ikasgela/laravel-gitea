@@ -188,6 +188,22 @@ class GiteaClient
         return $response['data'];
     }
 
+    public static function orgs_usuario($username)
+    {
+        self::init();
+
+        $uid = self::uid($username);
+
+        $request = self::$cliente->get("users/$username/orgs", [
+            'headers' => self::$headers,
+            'query' => [
+                'limit' => 50,
+            ]
+        ]);
+
+        return json_decode($request->getBody(), true);
+    }
+
     public static function borrar()
     {
         self::init();
@@ -236,6 +252,14 @@ class GiteaClient
                 }
 
                 $repos = self::repos_usuario($username);
+            }
+
+            // Quitar al usuario de las organizaciones a las que pertenezca
+            $orgs = self::orgs_usuario($username);
+            foreach ($orgs as $org) {
+                self::$cliente->delete('orgs/' . $org['username'] . '/members/' . $username, [
+                    'headers' => self::$headers
+                ]);
             }
 
             // Borrar el usuario
