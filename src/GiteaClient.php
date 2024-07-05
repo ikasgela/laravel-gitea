@@ -515,4 +515,29 @@ class GiteaClient
         }
         return false;
     }
+
+    public static function organization($name, $owner)
+    {
+        self::init();
+
+        try {
+            self::$cliente->post('orgs', [
+                'headers' => self::$headers,
+                'json' => [
+                    "username" => $name,
+                    'visibility' => 'private',
+                ]
+            ]);
+            Log::info('Gitea: Nueva organización creada.', [
+                'username' => $name
+            ]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Gitea: Error al crear una nueva organización.', [
+                "username" => $name,
+                'exception' => $e->getMessage()
+            ]);
+        }
+        return false;
+    }
 }
