@@ -540,4 +540,37 @@ class GiteaClient
         }
         return false;
     }
+
+    public static function borrar_organizacion($organization)
+    {
+        self::init();
+
+        try {
+            // Borrar los repositorios de la organizaciób
+            $repos = self::repos_usuario($organization);
+            while (count($repos) > 0) {
+                foreach ($repos as $repo) {
+                    self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
+                        'headers' => self::$headers
+                    ]);
+                }
+
+                $repos = self::repos_usuario($organization);
+            }
+
+            // Borrar la organización
+            self::$cliente->delete('orgs/' . $organization, [
+                'headers' => self::$headers
+            ]);
+
+            Log::info('Gitea: Organización borrada.', [
+                'organization' => $organization
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Gitea: Error al borrar la organización.', [
+                'organization' => $organization,
+                'exception' => $e->getMessage()
+            ]);
+        }
+    }
 }
