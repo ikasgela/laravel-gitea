@@ -521,6 +521,36 @@ class GiteaClient
         self::init();
 
         try {
+            $request = self::$cliente->get('admin/orgs', [
+                'headers' => self::$headers
+            ]);
+
+            // Comprobar si ya existe antes de crearla
+            $organizaciones = json_decode($request->getBody(), true);
+
+            $existe = false;
+            foreach ($organizaciones as $organizacion) {
+                if ($existe = $organizacion['name'] == $name) {
+                    break;
+                }
+            }
+
+            if ($existe) {
+                Log::info('Gitea: La organización ya existe.', [
+                    'username' => $name
+                ]);
+                return true;
+            }
+
+            // Crearla si no existe
+            self::$cliente->get('orgs', [
+                'headers' => self::$headers,
+                'json' => [
+                    "username" => $name,
+                    'visibility' => 'private',
+                ]
+            ]);
+
             self::$cliente->post('orgs', [
                 'headers' => self::$headers,
                 'json' => [
