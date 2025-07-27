@@ -516,7 +516,7 @@ class GiteaClient
         return false;
     }
 
-    public static function organization($name, $owner)
+    public static function organization($name, $full_name)
     {
         self::init();
 
@@ -543,18 +543,11 @@ class GiteaClient
             }
 
             // Crearla si no existe
-            self::$cliente->get('orgs', [
-                'headers' => self::$headers,
-                'json' => [
-                    "username" => $name,
-                    'visibility' => 'private',
-                ]
-            ]);
-
             self::$cliente->post('orgs', [
                 'headers' => self::$headers,
                 'json' => [
                     "username" => $name,
+                    'full_name' => $full_name,
                     'visibility' => 'private',
                 ]
             ]);
