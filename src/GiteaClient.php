@@ -140,6 +140,7 @@ class GiteaClient
 
             return $e->getCode();
         }
+        return null;
     }
 
     public static function repos()
