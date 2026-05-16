@@ -111,10 +111,9 @@ class GiteaClient
         self::init();
 
         try {
-            $query = "repos/$owner/$repo/commits?sha=$branch";
-
-            $request = self::$cliente->get($query, [
-                'headers' => self::$headers
+            $request = self::$cliente->get("repos/$owner/$repo/commits", [
+                'headers' => self::$headers,
+                'query' => ['sha' => $branch],
             ]);
 
             $response = json_decode($request->getBody(), true);
