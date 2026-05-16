@@ -212,7 +212,16 @@ class GiteaClient
         $repos = self::repos();
 
         $total = 0;
+        $prevCount = PHP_INT_MAX;
         while (count($repos) > 0) {
+            if (count($repos) >= $prevCount) {
+                Log::error('Gitea: Borrado interrumpido, los repositorios no disminuyen.', [
+                    'count' => count($repos)
+                ]);
+                break;
+            }
+            $prevCount = count($repos);
+
             foreach ($repos as $repo) {
                 self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
                     'headers' => self::$headers
@@ -245,7 +254,17 @@ class GiteaClient
         try {
             // Borrar los repositorios de usuario
             $repos = self::repos_usuario($username);
+            $prevCount = PHP_INT_MAX;
             while (count($repos) > 0) {
+                if (count($repos) >= $prevCount) {
+                    Log::error('Gitea: Borrado de usuario interrumpido, los repositorios no disminuyen.', [
+                        'username' => $username,
+                        'count' => count($repos)
+                    ]);
+                    break;
+                }
+                $prevCount = count($repos);
+
                 foreach ($repos as $repo) {
                     self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
                         'headers' => self::$headers
@@ -572,7 +591,17 @@ class GiteaClient
         try {
             // Borrar los repositorios de la organizaciób
             $repos = self::repos_usuario($organization);
+            $prevCount = PHP_INT_MAX;
             while (count($repos) > 0) {
+                if (count($repos) >= $prevCount) {
+                    Log::error('Gitea: Borrado de organización interrumpido, los repositorios no disminuyen.', [
+                        'organization' => $organization,
+                        'count' => count($repos)
+                    ]);
+                    break;
+                }
+                $prevCount = count($repos);
+
                 foreach ($repos as $repo) {
                     self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
                         'headers' => self::$headers
