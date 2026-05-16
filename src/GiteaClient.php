@@ -193,18 +193,24 @@ class GiteaClient
         return null;
     }
 
-    public static function repos()
+    public static function repos(): array
     {
         self::init();
 
-        $request = self::$cliente->get('repos/search', [
-            'headers' => self::$headers,
-            'query' => [
-                'limit' => 1000
-            ]
-        ]);
-        $response = json_decode($request->getBody(), true);
-        return $response['data'];
+        $repos = [];
+        $page = 1;
+        do {
+            $request = self::$cliente->get('repos/search', [
+                'headers' => self::$headers,
+                'query' => ['limit' => 50, 'page' => $page],
+            ]);
+            $response = json_decode($request->getBody(), true);
+            $data = $response['data'] ?? [];
+            $repos = array_merge($repos, $data);
+            $page++;
+        } while (count($data) === 50);
+
+        return $repos;
     }
 
     public static function uid($username)
@@ -219,24 +225,33 @@ class GiteaClient
         return $response['id'];
     }
 
-    public static function repos_usuario($username)
+    public static function repos_usuario($username): array
     {
         self::init();
 
         $uid = self::uid($username);
 
-        $request = self::$cliente->get('repos/search', [
-            'headers' => self::$headers,
-            'query' => [
-                'limit' => 50,
-                'uid' => $uid,
-                'exclusive' => false,
-                'sort' => 'updated',
-                'order' => 'desc',
-            ]
-        ]);
-        $response = json_decode($request->getBody(), true);
-        return $response['data'];
+        $repos = [];
+        $page = 1;
+        do {
+            $request = self::$cliente->get('repos/search', [
+                'headers' => self::$headers,
+                'query' => [
+                    'limit' => 50,
+                    'page' => $page,
+                    'uid' => $uid,
+                    'exclusive' => false,
+                    'sort' => 'updated',
+                    'order' => 'desc',
+                ],
+            ]);
+            $response = json_decode($request->getBody(), true);
+            $data = $response['data'] ?? [];
+            $repos = array_merge($repos, $data);
+            $page++;
+        } while (count($data) === 50);
+
+        return $repos;
     }
 
     public static function orgs_usuario($username)
