@@ -193,8 +193,6 @@ class GiteaClient
     {
         self::init();
 
-        $uid = self::uid($username);
-
         $request = self::$cliente->get("users/$username/orgs", [
             'headers' => self::$headers,
             'query' => [
