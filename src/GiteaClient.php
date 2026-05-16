@@ -206,7 +206,7 @@ class GiteaClient
 
     public static function uid($username)
     {
-        return self::http()->get('users/' . $username)->throw()->json('id');
+        return self::http()->get('users/' . rawurlencode($username))->throw()->json('id');
     }
 
     public static function repos_usuario($username): array
@@ -234,7 +234,7 @@ class GiteaClient
 
     public static function orgs_usuario($username)
     {
-        return self::http()->get("users/$username/orgs", ['limit' => 50])->throw()->json();
+        return self::http()->get('users/' . rawurlencode($username) . '/orgs', ['limit' => 50])->throw()->json();
     }
 
     public static function borrar()
@@ -253,7 +253,7 @@ class GiteaClient
             $prevCount = count($repos);
 
             foreach ($repos as $repo) {
-                self::http()->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name']);
+                self::http()->delete('repos/' . rawurlencode($repo['owner']['username']) . '/' . rawurlencode($repo['name']));
                 echo '.';
                 $total++;
             }
@@ -273,7 +273,7 @@ class GiteaClient
                 return;
             }
 
-            self::http()->delete('repos/' . $repo['owner'] . '/' . $repo['name']);
+            self::http()->delete('repos/' . rawurlencode($repo['owner']) . '/' . rawurlencode($repo['name']));
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido borrar el repositorio.', [
                 'id' => $id,
@@ -299,7 +299,7 @@ class GiteaClient
                 $prevCount = count($repos);
 
                 foreach ($repos as $repo) {
-                    self::http()->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name']);
+                    self::http()->delete('repos/' . rawurlencode($repo['owner']['username']) . '/' . rawurlencode($repo['name']));
                 }
 
                 $repos = self::repos_usuario($username);
@@ -308,11 +308,11 @@ class GiteaClient
             // Quitar al usuario de las organizaciones a las que pertenezca
             $orgs = self::orgs_usuario($username);
             foreach ($orgs as $org) {
-                self::http()->delete('orgs/' . $org['username'] . '/members/' . $username);
+                self::http()->delete('orgs/' . rawurlencode($org['username']) . '/members/' . rawurlencode($username));
             }
 
             // Borrar el usuario
-            self::http()->delete('admin/users/' . $username);
+            self::http()->delete('admin/users/' . rawurlencode($username));
 
             Log::info('Gitea: Usuario borrado.', [
                 'username' => $username
@@ -353,7 +353,7 @@ class GiteaClient
     public static function password($username, $password)
     {
         try {
-            self::http()->patch('admin/users/' . $username, [
+            self::http()->patch('admin/users/' . rawurlencode($username), [
                 'login_name' => $username,
                 'password' => $password,
                 'must_change_password' => false,
@@ -375,7 +375,7 @@ class GiteaClient
     public static function full_name($email, $username, $full_name)
     {
         try {
-            self::http()->patch('admin/users/' . $username, [
+            self::http()->patch('admin/users/' . rawurlencode($username), [
                 'email' => $email,
                 'login_name' => $username,
                 'source_id' => 0,
@@ -398,7 +398,7 @@ class GiteaClient
     public static function block($email, $username)
     {
         try {
-            self::http()->patch('admin/users/' . $username, [
+            self::http()->patch('admin/users/' . rawurlencode($username), [
                 'email' => $email,
                 'login_name' => $username,
                 'source_id' => 0,
@@ -425,7 +425,7 @@ class GiteaClient
     public static function unblock($email, $username)
     {
         try {
-            self::http()->patch('admin/users/' . $username, [
+            self::http()->patch('admin/users/' . rawurlencode($username), [
                 'email' => $email,
                 'login_name' => $username,
                 'source_id' => 0,
@@ -452,7 +452,7 @@ class GiteaClient
     public static function block_repo($username, $repositorio, $block = true)
     {
         try {
-            self::http()->patch('repos/' . $username . '/' . $repositorio, [
+            self::http()->patch('repos/' . rawurlencode($username) . '/' . rawurlencode($repositorio), [
                 'archived' => $block,
             ])->throw();
 
@@ -505,7 +505,7 @@ class GiteaClient
     public static function add_collaborator($owner, $repo, $collaborator)
     {
         try {
-            self::http()->put("repos/$owner/$repo/collaborators/$collaborator", [
+            self::http()->put('repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/collaborators/' . rawurlencode($collaborator), [
                 'permission' => 'write',
             ])->throw();
 
@@ -521,7 +521,7 @@ class GiteaClient
     public static function template($username, $repositorio, $is_template = true)
     {
         try {
-            self::http()->patch('repos/' . $username . '/' . $repositorio, [
+            self::http()->patch('repos/' . rawurlencode($username) . '/' . rawurlencode($repositorio), [
                 'template' => $is_template,
             ])->throw();
 
@@ -545,7 +545,7 @@ class GiteaClient
     {
         try {
             // Comprobar si ya existe usando el endpoint directo, sin paginar todas las orgs
-            $check = self::http()->get('orgs/' . $name);
+            $check = self::http()->get('orgs/' . rawurlencode($name));
 
             if ($check->ok()) {
                 Log::info('Gitea: La organización ya existe.', ['username' => $name]);
@@ -595,14 +595,14 @@ class GiteaClient
                 $prevCount = count($repos);
 
                 foreach ($repos as $repo) {
-                    self::http()->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name']);
+                    self::http()->delete('repos/' . rawurlencode($repo['owner']['username']) . '/' . rawurlencode($repo['name']));
                 }
 
                 $repos = self::repos_usuario($organization);
             }
 
             // Borrar la organización
-            self::http()->delete('orgs/' . $organization);
+            self::http()->delete('orgs/' . rawurlencode($organization));
 
             Log::info('Gitea: Organización borrada.', ['organization' => $organization]);
         } catch (\Exception $e) {
