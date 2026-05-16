@@ -2,25 +2,20 @@
 
 namespace Ikasgela\Gitea;
 
-use GuzzleHttp\Client;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class GiteaClient
 {
-    private static $cliente = null;
-    private static $headers = null;
-
-    private static function init()
+    private static function http(): PendingRequest
     {
-        if (is_null(self::$cliente))
-            self::$cliente = new Client(['base_uri' => config('gitea.url') . '/api/v1/']);
-
-        if (is_null(self::$headers))
-            self::$headers = [
+        return Http::baseUrl(config('gitea.url') . '/api/v1/')
+            ->withHeaders([
                 'Authorization' => 'token ' . config('gitea.token'),
                 'Accept' => 'application/json',
-            ];
+            ]);
     }
 
     private static function datosRepositorio(mixed $response): array
@@ -39,16 +34,18 @@ class GiteaClient
 
     public static function repo($repositorio)
     {
-        self::init();
-
         try {
-            $request = self::$cliente->get('repos/' . $repositorio, [
-                'headers' => self::$headers
-            ]);
+            $response = self::http()->get('repos/' . $repositorio);
 
-            $response = json_decode($request->getBody(), true);
+            if ($response->failed()) {
+                Log::error('Gitea: No se ha podido obtener el repositorio.', [
+                    'repositorio' => $repositorio,
+                    'status' => $response->status(),
+                ]);
+                return null;
+            }
 
-            return self::datosRepositorio($response);
+            return self::datosRepositorio($response->json());
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido obtener el repositorio.', [
                 'repositorio' => $repositorio,
@@ -61,16 +58,18 @@ class GiteaClient
 
     public static function repo_by_id($id)
     {
-        self::init();
-
         try {
-            $request = self::$cliente->get('repositories/' . $id, [
-                'headers' => self::$headers
-            ]);
+            $response = self::http()->get('repositories/' . $id);
 
-            $response = json_decode($request->getBody(), true);
+            if ($response->failed()) {
+                Log::error('Gitea: No se ha podido obtener el repositorio por id.', [
+                    'id' => $id,
+                    'status' => $response->status(),
+                ]);
+                return null;
+            }
 
-            return self::datosRepositorio($response);
+            return self::datosRepositorio($response->json());
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido obtener el repositorio por id.', [
                 'id' => $id,
@@ -83,17 +82,23 @@ class GiteaClient
 
     public static function file($owner, $repo, $filepath, $branch)
     {
-        self::init();
-
         try {
-            $request = self::$cliente->get("repos/$owner/$repo/contents/" . rawurlencode($filepath), [
-                'headers' => self::$headers,
-                'query' => ['ref' => $branch],
-            ]);
+            $response = self::http()->get(
+                "repos/$owner/$repo/contents/" . rawurlencode($filepath),
+                ['ref' => $branch]
+            );
 
-            $response = json_decode($request->getBody(), true);
+            if ($response->failed()) {
+                Log::error('Gitea: No se ha podido obtener el fichero.', [
+                    'owner' => $owner,
+                    'repo' => $repo,
+                    'filepath' => $filepath,
+                    'status' => $response->status(),
+                ]);
+                return null;
+            }
 
-            return base64_decode($response['content']);
+            return base64_decode($response->json('content'));
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido obtener el fichero.', [
                 'owner' => $owner,
@@ -108,30 +113,24 @@ class GiteaClient
 
     public static function repo_first_sha($owner, $repo, $branch = 'master')
     {
-        self::init();
-
         try {
             // Obtener el total de commits con una petición mínima
-            $firstPage = self::$cliente->get("repos/$owner/$repo/commits", [
-                'headers' => self::$headers,
-                'query' => ['sha' => $branch, 'limit' => 1, 'page' => 1],
+            $firstPage = self::http()->get("repos/$owner/$repo/commits", [
+                'sha' => $branch, 'limit' => 1, 'page' => 1,
             ]);
 
-            $total = (int) ($firstPage->getHeader('X-Total-Count')[0] ?? 0);
+            $total = (int) ($firstPage->header('X-Total-Count') ?? 0);
 
             if ($total === 0) {
                 return null;
             }
 
             // Pedir sólo el último commit (el más antiguo, es decir, el primero)
-            $lastPage = self::$cliente->get("repos/$owner/$repo/commits", [
-                'headers' => self::$headers,
-                'query' => ['sha' => $branch, 'limit' => 1, 'page' => $total],
+            $lastPage = self::http()->get("repos/$owner/$repo/commits", [
+                'sha' => $branch, 'limit' => 1, 'page' => $total,
             ]);
 
-            $response = json_decode($lastPage->getBody(), true);
-
-            return $response[0]['sha'] ?? null;
+            return $lastPage->json('0.sha');
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido obtener el hash del primer commit.', [
                 'exception' => $e->getMessage()
@@ -143,36 +142,25 @@ class GiteaClient
 
     public static function clone($repositorio, $username, $destino, $descripcion = null)
     {
-        self::init();
-
         try {
-            // Hacer la copia del repositorio
-            $request = self::$cliente->post("repos/$repositorio/generate", [
-                'headers' => self::$headers,
-                'json' => [
-                    "owner" => $username,
-                    "name" => $destino,
-                    "private" => true,
-                    "git_content" => true,
-                    "description" => $descripcion,
-                ]
+            $response = self::http()->post("repos/$repositorio/generate", [
+                'owner' => $username,
+                'name' => $destino,
+                'private' => true,
+                'git_content' => true,
+                'description' => $descripcion,
             ]);
 
-            if ($request->getStatusCode() == 201) {
-                $response = json_decode($request->getBody(), true);
-
-                $data = self::datosRepositorio($response);
-
-                return $data;
+            if ($response->status() === 201) {
+                return self::datosRepositorio($response->json());
             }
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            if ($e->getCode() === 409) {
+
+            if ($response->status() === 409) {
                 return 409;
             }
 
             Log::error('Error al clonar el repositorio.', [
-                'exception' => $e->getMessage(),
-                'code' => $e->getCode(),
+                'status' => $response->status(),
                 'repo' => $repositorio,
                 'username' => $username,
                 'destino' => $destino,
@@ -182,7 +170,6 @@ class GiteaClient
         } catch (\Exception $e) {
             Log::error('Error al clonar el repositorio.', [
                 'exception' => $e->getMessage(),
-                'code' => $e->getCode(),
                 'repo' => $repositorio,
                 'username' => $username,
                 'destino' => $destino,
@@ -190,22 +177,15 @@ class GiteaClient
 
             return null;
         }
-        return null;
     }
 
     public static function repos(): array
     {
-        self::init();
-
         $repos = [];
         $page = 1;
         do {
-            $request = self::$cliente->get('repos/search', [
-                'headers' => self::$headers,
-                'query' => ['limit' => 50, 'page' => $page],
-            ]);
-            $response = json_decode($request->getBody(), true);
-            $data = $response['data'] ?? [];
+            $response = self::http()->get('repos/search', ['limit' => 50, 'page' => $page]);
+            $data = $response->json('data') ?? [];
             $repos = array_merge($repos, $data);
             $page++;
         } while (count($data) === 50);
@@ -215,38 +195,25 @@ class GiteaClient
 
     public static function uid($username)
     {
-        self::init();
-
-        $request = self::$cliente->get('users/' . $username, [
-            'headers' => self::$headers,
-        ]);
-
-        $response = json_decode($request->getBody(), true);
-        return $response['id'];
+        return self::http()->get('users/' . $username)->throw()->json('id');
     }
 
     public static function repos_usuario($username): array
     {
-        self::init();
-
         $uid = self::uid($username);
 
         $repos = [];
         $page = 1;
         do {
-            $request = self::$cliente->get('repos/search', [
-                'headers' => self::$headers,
-                'query' => [
-                    'limit' => 50,
-                    'page' => $page,
-                    'uid' => $uid,
-                    'exclusive' => false,
-                    'sort' => 'updated',
-                    'order' => 'desc',
-                ],
+            $response = self::http()->get('repos/search', [
+                'limit' => 50,
+                'page' => $page,
+                'uid' => $uid,
+                'exclusive' => false,
+                'sort' => 'updated',
+                'order' => 'desc',
             ]);
-            $response = json_decode($request->getBody(), true);
-            $data = $response['data'] ?? [];
+            $data = $response->json('data') ?? [];
             $repos = array_merge($repos, $data);
             $page++;
         } while (count($data) === 50);
@@ -256,22 +223,11 @@ class GiteaClient
 
     public static function orgs_usuario($username)
     {
-        self::init();
-
-        $request = self::$cliente->get("users/$username/orgs", [
-            'headers' => self::$headers,
-            'query' => [
-                'limit' => 50,
-            ]
-        ]);
-
-        return json_decode($request->getBody(), true);
+        return self::http()->get("users/$username/orgs", ['limit' => 50])->throw()->json();
     }
 
     public static function borrar()
     {
-        self::init();
-
         $repos = self::repos();
 
         $total = 0;
@@ -286,9 +242,7 @@ class GiteaClient
             $prevCount = count($repos);
 
             foreach ($repos as $repo) {
-                self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
-                    'headers' => self::$headers
-                ]);
+                self::http()->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name']);
                 echo '.';
                 $total++;
             }
@@ -301,8 +255,6 @@ class GiteaClient
 
     public static function borrar_repo($id)
     {
-        self::init();
-
         try {
             $repo = self::repo_by_id($id);
 
@@ -310,9 +262,7 @@ class GiteaClient
                 return;
             }
 
-            self::$cliente->delete('repos/' . $repo['owner'] . '/' . $repo['name'], [
-                'headers' => self::$headers
-            ]);
+            self::http()->delete('repos/' . $repo['owner'] . '/' . $repo['name']);
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido borrar el repositorio.', [
                 'id' => $id,
@@ -323,8 +273,6 @@ class GiteaClient
 
     public static function borrar_usuario($username)
     {
-        self::init();
-
         try {
             // Borrar los repositorios de usuario
             $repos = self::repos_usuario($username);
@@ -340,9 +288,7 @@ class GiteaClient
                 $prevCount = count($repos);
 
                 foreach ($repos as $repo) {
-                    self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
-                        'headers' => self::$headers
-                    ]);
+                    self::http()->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name']);
                 }
 
                 $repos = self::repos_usuario($username);
@@ -351,15 +297,11 @@ class GiteaClient
             // Quitar al usuario de las organizaciones a las que pertenezca
             $orgs = self::orgs_usuario($username);
             foreach ($orgs as $org) {
-                self::$cliente->delete('orgs/' . $org['username'] . '/members/' . $username, [
-                    'headers' => self::$headers
-                ]);
+                self::http()->delete('orgs/' . $org['username'] . '/members/' . $username);
             }
 
             // Borrar el usuario
-            self::$cliente->delete('admin/users/' . $username, [
-                'headers' => self::$headers
-            ]);
+            self::http()->delete('admin/users/' . $username);
 
             Log::info('Gitea: Usuario borrado.', [
                 'username' => $username
@@ -374,20 +316,16 @@ class GiteaClient
 
     public static function user($email, $username, $name, $password = null)
     {
-        self::init();
-
         try {
-            self::$cliente->post('admin/users', [
-                'headers' => self::$headers,
-                'json' => [
-                    "email" => $email,
-                    "full_name" => $name,
-                    "username" => $username,
-                    "password" => $password ?: Str::random(62) . '._',
-                    "must_change_password" => false,
-                    'visibility' => 'private',
-                ]
-            ]);
+            self::http()->post('admin/users', [
+                'email' => $email,
+                'full_name' => $name,
+                'username' => $username,
+                'password' => $password ?: Str::random(62) . '._',
+                'must_change_password' => false,
+                'visibility' => 'private',
+            ])->throw();
+
             Log::info('Gitea: Nuevo usuario creado.', [
                 'username' => $username
             ]);
@@ -403,17 +341,13 @@ class GiteaClient
 
     public static function password($username, $password)
     {
-        self::init();
-
         try {
-            self::$cliente->patch('admin/users/' . $username, [
-                'headers' => self::$headers,
-                'json' => [
-                    'login_name' => $username,
-                    'password' => $password,
-                    'must_change_password' => false,
-                ]
-            ]);
+            self::http()->patch('admin/users/' . $username, [
+                'login_name' => $username,
+                'password' => $password,
+                'must_change_password' => false,
+            ])->throw();
+
             Log::info('Gitea: Contraseña cambiada.', [
                 'username' => $username
             ]);
@@ -429,19 +363,14 @@ class GiteaClient
 
     public static function full_name($email, $username, $full_name)
     {
-        self::init();
-
         try {
-            self::$cliente->patch('admin/users/' . $username, [
-                'headers' => self::$headers,
-                'json' => [
-                    'email' => $email,
-                    'login_name' => $username,
-                    'source_id' => 0,
+            self::http()->patch('admin/users/' . $username, [
+                'email' => $email,
+                'login_name' => $username,
+                'source_id' => 0,
+                'full_name' => $full_name,
+            ])->throw();
 
-                    'full_name' => $full_name,
-                ]
-            ]);
             Log::info('Gitea: Nombre actualizado.', [
                 'username' => $username
             ]);
@@ -457,24 +386,18 @@ class GiteaClient
 
     public static function block($email, $username)
     {
-        self::init();
-
         try {
-            self::$cliente->patch('admin/users/' . $username, [
-                'headers' => self::$headers,
-                'json' => [
-                    'email' => $email,
-                    'login_name' => $username,
-                    'source_id' => 0,
+            self::http()->patch('admin/users/' . $username, [
+                'email' => $email,
+                'login_name' => $username,
+                'source_id' => 0,
+                'active' => false,
+                'prohibit_login' => true,
+                'allow_create_organization' => false,
+                'allow_git_hook' => false,
+                'allow_import_local' => false,
+            ])->throw();
 
-                    'active' => false,
-                    'prohibit_login' => true,
-
-                    'allow_create_organization' => false,
-                    'allow_git_hook' => false,
-                    'allow_import_local' => false,
-                ]
-            ]);
             Log::info('Gitea: Usuario bloqueado.', [
                 'username' => $username
             ]);
@@ -490,24 +413,18 @@ class GiteaClient
 
     public static function unblock($email, $username)
     {
-        self::init();
-
         try {
-            self::$cliente->patch('admin/users/' . $username, [
-                'headers' => self::$headers,
-                'json' => [
-                    'email' => $email,
-                    'login_name' => $username,
-                    'source_id' => 0,
+            self::http()->patch('admin/users/' . $username, [
+                'email' => $email,
+                'login_name' => $username,
+                'source_id' => 0,
+                'active' => true,
+                'prohibit_login' => false,
+                'allow_create_organization' => false,
+                'allow_git_hook' => false,
+                'allow_import_local' => false,
+            ])->throw();
 
-                    'active' => true,
-                    'prohibit_login' => false,
-
-                    'allow_create_organization' => false,
-                    'allow_git_hook' => false,
-                    'allow_import_local' => false,
-                ]
-            ]);
             Log::info('Gitea: Usuario desbloqueado.', [
                 'username' => $username
             ]);
@@ -523,15 +440,11 @@ class GiteaClient
 
     public static function block_repo($username, $repositorio, $block = true)
     {
-        self::init();
-
         try {
-            self::$cliente->patch('repos/' . $username . '/' . $repositorio, [
-                'headers' => self::$headers,
-                'json' => [
-                    'archived' => $block,
-                ]
-            ]);
+            self::http()->patch('repos/' . $username . '/' . $repositorio, [
+                'archived' => $block,
+            ])->throw();
+
             Log::info('Gitea: Repositorio ' . ($block ? 'bloqueado' : 'desbloqueado') . '.', [
                 'username' => $username,
                 'repository' => $repositorio,
@@ -550,29 +463,20 @@ class GiteaClient
 
     public static function download($owner, $repo, $branch)
     {
-        self::init();
+        $response = self::http()
+            ->withOptions(['stream' => true])
+            ->get("repos/$owner/$repo/archive/$branch");
 
-        $response = self::$cliente->get("repos/$owner/$repo/archive/$branch", [
-            'headers' => self::$headers,
-            'stream' => true,
-        ]);
-
-        return $response->getBody();
+        return $response->toPsrResponse()->getBody();
     }
 
     public static function add_collaborator($owner, $repo, $collaborator)
     {
-        self::init();
-
-        $query = "repos/$owner/$repo/collaborators/$collaborator";
-
         try {
-            self::$cliente->put($query, [
-                'headers' => self::$headers,
-                'json' => [
-                    'permission' => 'write',
-                ]
-            ]);
+            self::http()->put("repos/$owner/$repo/collaborators/$collaborator", [
+                'permission' => 'write',
+            ])->throw();
+
             return true;
         } catch (\Exception $e) {
             Log::error('Gitea: Error al añadir colaborador.', [
@@ -584,15 +488,11 @@ class GiteaClient
 
     public static function template($username, $repositorio, $is_template = true)
     {
-        self::init();
-
         try {
-            self::$cliente->patch('repos/' . $username . '/' . $repositorio, [
-                'headers' => self::$headers,
-                'json' => [
-                    'template' => $is_template,
-                ]
-            ]);
+            self::http()->patch('repos/' . $username . '/' . $repositorio, [
+                'template' => $is_template,
+            ])->throw();
+
             Log::info('Gitea: Repositorio ' . ($is_template ? 'marcado como plantilla' : 'desmarcado como plantilla') . '.', [
                 'username' => $username,
                 'repository' => $repositorio,
@@ -611,41 +511,35 @@ class GiteaClient
 
     public static function organization($name, $full_name)
     {
-        self::init();
-
         try {
             // Comprobar si ya existe usando el endpoint directo, sin paginar todas las orgs
-            try {
-                self::$cliente->get('orgs/' . $name, [
-                    'headers' => self::$headers
-                ]);
-                Log::info('Gitea: La organización ya existe.', [
-                    'username' => $name
-                ]);
+            $check = self::http()->get('orgs/' . $name);
+
+            if ($check->ok()) {
+                Log::info('Gitea: La organización ya existe.', ['username' => $name]);
                 return true;
-            } catch (\GuzzleHttp\Exception\ClientException $e) {
-                if ($e->getCode() !== 404) {
-                    throw $e;
-                }
-                // 404 = no existe, se crea a continuación
             }
 
-            // Crearla si no existe
-            self::$cliente->post('orgs', [
-                'headers' => self::$headers,
-                'json' => [
-                    "username" => $name,
-                    'full_name' => $full_name,
-                    'visibility' => 'private',
-                ]
-            ]);
-            Log::info('Gitea: Nueva organización creada.', [
-                'username' => $name
-            ]);
+            if (!$check->notFound()) {
+                Log::error('Gitea: Error inesperado al comprobar la organización.', [
+                    'username' => $name,
+                    'status' => $check->status(),
+                ]);
+                return false;
+            }
+
+            // 404 = no existe, se crea a continuación
+            self::http()->post('orgs', [
+                'username' => $name,
+                'full_name' => $full_name,
+                'visibility' => 'private',
+            ])->throw();
+
+            Log::info('Gitea: Nueva organización creada.', ['username' => $name]);
             return true;
         } catch (\Exception $e) {
             Log::error('Gitea: Error al crear una nueva organización.', [
-                "username" => $name,
+                'username' => $name,
                 'exception' => $e->getMessage()
             ]);
         }
@@ -654,10 +548,8 @@ class GiteaClient
 
     public static function borrar_organizacion($organization)
     {
-        self::init();
-
         try {
-            // Borrar los repositorios de la organizaciób
+            // Borrar los repositorios de la organización
             $repos = self::repos_usuario($organization);
             $prevCount = PHP_INT_MAX;
             while (count($repos) > 0) {
@@ -671,22 +563,16 @@ class GiteaClient
                 $prevCount = count($repos);
 
                 foreach ($repos as $repo) {
-                    self::$cliente->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name'], [
-                        'headers' => self::$headers
-                    ]);
+                    self::http()->delete('repos/' . $repo['owner']['username'] . '/' . $repo['name']);
                 }
 
                 $repos = self::repos_usuario($organization);
             }
 
             // Borrar la organización
-            self::$cliente->delete('orgs/' . $organization, [
-                'headers' => self::$headers
-            ]);
+            self::http()->delete('orgs/' . $organization);
 
-            Log::info('Gitea: Organización borrada.', [
-                'organization' => $organization
-            ]);
+            Log::info('Gitea: Organización borrada.', ['organization' => $organization]);
         } catch (\Exception $e) {
             Log::error('Gitea: Error al borrar la organización.', [
                 'organization' => $organization,
