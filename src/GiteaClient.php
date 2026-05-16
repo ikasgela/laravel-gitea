@@ -41,45 +41,69 @@ class GiteaClient
     {
         self::init();
 
-        $request = self::$cliente->get('repos/' . $repositorio, [
-            'headers' => self::$headers
-        ]);
+        try {
+            $request = self::$cliente->get('repos/' . $repositorio, [
+                'headers' => self::$headers
+            ]);
 
-        $response = json_decode($request->getBody(), true);
+            $response = json_decode($request->getBody(), true);
 
-        $data = self::datosRepositorio($response);
+            return self::datosRepositorio($response);
+        } catch (\Exception $e) {
+            Log::error('Gitea: No se ha podido obtener el repositorio.', [
+                'repositorio' => $repositorio,
+                'exception' => $e->getMessage()
+            ]);
+        }
 
-        return $data;
+        return null;
     }
 
     public static function repo_by_id($id)
     {
         self::init();
 
-        $request = self::$cliente->get('repositories/' . $id, [
-            'headers' => self::$headers
-        ]);
+        try {
+            $request = self::$cliente->get('repositories/' . $id, [
+                'headers' => self::$headers
+            ]);
 
-        $response = json_decode($request->getBody(), true);
+            $response = json_decode($request->getBody(), true);
 
-        $data = self::datosRepositorio($response);
+            return self::datosRepositorio($response);
+        } catch (\Exception $e) {
+            Log::error('Gitea: No se ha podido obtener el repositorio por id.', [
+                'id' => $id,
+                'exception' => $e->getMessage()
+            ]);
+        }
 
-        return $data;
+        return null;
     }
 
     public static function file($owner, $repo, $filepath, $branch)
     {
         self::init();
 
-        $query = "repos/$owner/$repo/contents/$filepath?ref=$branch";
+        try {
+            $request = self::$cliente->get("repos/$owner/$repo/contents/" . rawurlencode($filepath), [
+                'headers' => self::$headers,
+                'query' => ['ref' => $branch],
+            ]);
 
-        $request = self::$cliente->get($query, [
-            'headers' => self::$headers
-        ]);
+            $response = json_decode($request->getBody(), true);
 
-        $response = json_decode($request->getBody(), true);
+            return base64_decode($response['content']);
+        } catch (\Exception $e) {
+            Log::error('Gitea: No se ha podido obtener el fichero.', [
+                'owner' => $owner,
+                'repo' => $repo,
+                'filepath' => $filepath,
+                'exception' => $e->getMessage()
+            ]);
+        }
 
-        return base64_decode($response['content']);
+        return null;
     }
 
     public static function repo_first_sha($owner, $repo, $branch = 'master')
@@ -252,11 +276,22 @@ class GiteaClient
     {
         self::init();
 
-        $repo = self::repo_by_id($id);
+        try {
+            $repo = self::repo_by_id($id);
 
-        self::$cliente->delete('repos/' . $repo['owner'] . '/' . $repo['name'], [
-            'headers' => self::$headers
-        ]);
+            if (is_null($repo)) {
+                return;
+            }
+
+            self::$cliente->delete('repos/' . $repo['owner'] . '/' . $repo['name'], [
+                'headers' => self::$headers
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Gitea: No se ha podido borrar el repositorio.', [
+                'id' => $id,
+                'exception' => $e->getMessage()
+            ]);
+        }
     }
 
     public static function borrar_usuario($username)
