@@ -111,14 +111,27 @@ class GiteaClient
         self::init();
 
         try {
-            $request = self::$cliente->get("repos/$owner/$repo/commits", [
+            // Obtener el total de commits con una petición mínima
+            $firstPage = self::$cliente->get("repos/$owner/$repo/commits", [
                 'headers' => self::$headers,
-                'query' => ['sha' => $branch],
+                'query' => ['sha' => $branch, 'limit' => 1, 'page' => 1],
             ]);
 
-            $response = json_decode($request->getBody(), true);
+            $total = (int) ($firstPage->getHeader('X-Total-Count')[0] ?? 0);
 
-            return $response[array_key_last($response)]['sha'];
+            if ($total === 0) {
+                return null;
+            }
+
+            // Pedir sólo el último commit (el más antiguo, es decir, el primero)
+            $lastPage = self::$cliente->get("repos/$owner/$repo/commits", [
+                'headers' => self::$headers,
+                'query' => ['sha' => $branch, 'limit' => 1, 'page' => $total],
+            ]);
+
+            $response = json_decode($lastPage->getBody(), true);
+
+            return $response[0]['sha'] ?? null;
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido obtener el hash del primer commit.', [
                 'exception' => $e->getMessage()
