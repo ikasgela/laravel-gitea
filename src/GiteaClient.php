@@ -98,7 +98,17 @@ class GiteaClient
                 return null;
             }
 
-            return base64_decode($response->json('content'));
+            $content = $response->json('content');
+            if (!is_string($content)) {
+                Log::error('Gitea: La respuesta del fichero no contiene contenido en base64.', [
+                    'owner' => $owner,
+                    'repo' => $repo,
+                    'filepath' => $filepath,
+                ]);
+                return null;
+            }
+
+            return base64_decode($content);
         } catch (\Exception $e) {
             Log::error('Gitea: No se ha podido obtener el fichero.', [
                 'owner' => $owner,
