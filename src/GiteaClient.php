@@ -463,11 +463,32 @@ class GiteaClient
 
     public static function download($owner, $repo, $branch)
     {
-        $response = self::http()
-            ->withOptions(['stream' => true])
-            ->get("repos/$owner/$repo/archive/$branch");
+        try {
+            $response = self::http()
+                ->withOptions(['stream' => true])
+                ->get('repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/archive/' . rawurlencode($branch));
 
-        return $response->toPsrResponse()->getBody();
+            if ($response->failed()) {
+                Log::error('Gitea: No se ha podido descargar el repositorio.', [
+                    'owner' => $owner,
+                    'repo' => $repo,
+                    'branch' => $branch,
+                    'status' => $response->status(),
+                ]);
+                return null;
+            }
+
+            return $response->toPsrResponse()->getBody();
+        } catch (\Exception $e) {
+            Log::error('Gitea: No se ha podido descargar el repositorio.', [
+                'owner' => $owner,
+                'repo' => $repo,
+                'branch' => $branch,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
     }
 
     public static function add_collaborator($owner, $repo, $collaborator)
