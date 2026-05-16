@@ -129,6 +129,20 @@ class GiteaClient
 
                 return $data;
             }
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            if ($e->getCode() === 409) {
+                return 409;
+            }
+
+            Log::error('Error al clonar el repositorio.', [
+                'exception' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'repo' => $repositorio,
+                'username' => $username,
+                'destino' => $destino,
+            ]);
+
+            return null;
         } catch (\Exception $e) {
             Log::error('Error al clonar el repositorio.', [
                 'exception' => $e->getMessage(),
@@ -138,7 +152,7 @@ class GiteaClient
                 'destino' => $destino,
             ]);
 
-            return $e->getCode();
+            return null;
         }
         return null;
     }
