@@ -537,13 +537,12 @@ class GiteaClient
     {
         self::init();
 
-        $query = "repos/$owner/$repo/archive/$branch";
-
-        $response = self::$cliente->get($query, [
-            'headers' => self::$headers
+        $response = self::$cliente->get("repos/$owner/$repo/archive/$branch", [
+            'headers' => self::$headers,
+            'stream' => true,
         ]);
 
-        return $response->getBody()->getContents();
+        return $response->getBody();
     }
 
     public static function add_collaborator($owner, $repo, $collaborator)
