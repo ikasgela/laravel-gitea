@@ -84,7 +84,7 @@ class GiteaClient
     {
         try {
             $response = self::http()->get(
-                "repos/$owner/$repo/contents/" . rawurlencode($filepath),
+                'repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/contents/' . rawurlencode($filepath),
                 ['ref' => $branch]
             );
 
@@ -125,7 +125,8 @@ class GiteaClient
     {
         try {
             // Obtener el total de commits con una petición mínima
-            $firstPage = self::http()->get("repos/$owner/$repo/commits", [
+            $base = 'repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/commits';
+            $firstPage = self::http()->get($base, [
                 'sha' => $branch, 'limit' => 1, 'page' => 1,
             ]);
 
@@ -136,7 +137,7 @@ class GiteaClient
             }
 
             // Pedir sólo el último commit (el más antiguo, es decir, el primero)
-            $lastPage = self::http()->get("repos/$owner/$repo/commits", [
+            $lastPage = self::http()->get($base, [
                 'sha' => $branch, 'limit' => 1, 'page' => $total,
             ]);
 
