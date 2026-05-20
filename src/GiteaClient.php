@@ -154,7 +154,9 @@ class GiteaClient
     public static function clone($repositorio, $username, $destino, $descripcion = null)
     {
         try {
-            $response = self::http()->post("repos/$repositorio/generate", [
+            $response = self::http()
+                ->timeout(config('gitea.clone_timeout', 300))
+                ->post("repos/$repositorio/generate", [
                 'owner' => $username,
                 'name' => $destino,
                 'private' => true,
